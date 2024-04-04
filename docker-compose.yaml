@@ -1,0 +1,85 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres
+    container_name: fahrtenbuch-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-postgres}
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: pgadmin_container
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      GUNICORN_ACCESS_LOGFILE: '/dev/null'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: fahrtenbuch-server-image
+    container_name: fahrtenbuch-server
+    command: npm run dev
+    volumes:
+      - ./server/:/server
+      - /server/node_modules
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+    env_file:
+      - ./server/.env
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+    networks:
+      - app-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: fahrtenbuch-client-image
+    container_name: fahrtenbuch-client
+    command: npm start
+    environment:
+      - SKIP_PREFLIGHT_CHECK=true
+    volumes:
+      - ./client/:/client
+      - /client/node_modules
+    depends_on:
+      - server
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres:
+  pgadmin:
+  node_modules:
+  web-root:
+    driver: local

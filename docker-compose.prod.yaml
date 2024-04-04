@@ -1,0 +1,48 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres
+    container_name: fahrtenbuch-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-postgres}
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./
+      dockerfile: Dockerfile_Prod
+    image: fahrtenbuch-server-image
+    container_name: fahrtenbuch-server
+    command: npm run start:prod
+
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+    env_file:
+      - ./server/.env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+    networks:
+      - app-network
+    restart: unless-stopped
+    
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres:
+  pgadmin:
+  node_modules:
+  web-root:
+    driver: local

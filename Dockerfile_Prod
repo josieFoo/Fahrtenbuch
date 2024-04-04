@@ -1,0 +1,41 @@
+FROM node:lts-alpine
+
+WORKDIR ./fservice
+# set container's workdir
+COPY ./client/package.json ./client/package.json
+COPY ./client/package-lock.json ./client/package-lock.json
+
+WORKDIR ./client
+# install dependencies
+RUN npm install
+COPY ./client/ .
+RUN npm run build
+
+
+# set container's workdir
+WORKDIR ../server
+
+# install dependencies
+COPY ./server/package*.json ./
+RUN npm install
+COPY ./server/src ./src
+COPY ./server/webpack.config.js ./webpack.config.js
+COPY ./server/tsconfig.json ./tsconfig.json
+RUN npm run build:prod
+
+## Stage 2 (Copy Prod Build)
+FROM node:lts-alpine
+# server
+WORKDIR ./server
+COPY ./server/package*.json .
+RUN npm ci --only=production
+COPY --from=0 ./fservice/server/dist .
+
+# client
+COPY --from=0 ./fservice/client/build ./public
+
+# TODO Copy languages to alt languages
+
+
+EXPOSE 4000
+CMD ["npm", "run", "start:prod"]
